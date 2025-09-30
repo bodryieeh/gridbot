@@ -1,36 +1,25 @@
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Float,
-    DateTime,
-)
-from sqlalchemy.dialects.sqlite import JSON
-from sqlalchemy.orm import declarative_base
-import datetime
+# backend/models.py
 
-Base = declarative_base()
-
-class MarketData(Base):
-    __tablename__ = "market_data"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    symbol = Column(String, index=True, nullable=False)
-    timestamp = Column(DateTime, index=True, default=datetime.datetime.utcnow)
-    open = Column(Float, nullable=False)
-    high = Column(Float, nullable=False)
-    low = Column(Float, nullable=False)
-    close = Column(Float, nullable=False)
-    volume = Column(Float, nullable=False)
+from sqlalchemy import Column, Integer, String, Float, Boolean
+from database import Base
 
 class BotConfig(Base):
-    __tablename__ = "bot_config"
+    __tablename__ = "bot_configs"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, unique=True, index=True, nullable=False)
-    symbol = Column(String, index=True, nullable=False)
-    min_price = Column(Float, nullable=False)
-    max_price = Column(Float, nullable=False)
-    levels = Column(Integer, nullable=False)
-    order_size = Column(Float, nullable=False)
-    params = Column(JSON, default={})  # для дополнительных AI-настроек
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    exchange = Column(String, index=True)
+    grid_size = Column(Integer)
+    lower_price = Column(Float)
+    upper_price = Column(Float)
+    lot_size = Column(Float)
+
+class PriceGrid(Base):
+    __tablename__ = "price_grids"
+
+    id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, index=True)
+    level = Column(Integer, index=True)
+    price = Column(Float)
+    side = Column(String)
+    is_active = Column(Boolean, default=True)

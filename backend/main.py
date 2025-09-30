@@ -1,82 +1,58 @@
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from database import engine, AsyncSessionLocal
-from models import Base, MarketData, BotConfig
-from schemas import MarketDataCreate, BotConfigCreate, BotConfigRead
-from datetime import datetime
+# backend/main.py
+
+from typing import List
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+
+from database import engine, SessionLocal, Base
+import models
+import schemas
+from services.bot_service import BotService
+from services.grid_service import GridService
+
+# Создание всех таблиц
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# Dependency: выдаёт сессию БД
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-# Создание всех таблиц при старте приложения
-@app.on_event("startup")
-async def on_startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+# CRUD для BotConfig
+@app.post("/bots/", response_model=schemas.BotConfig)
+def create_bot(bot_in: schemas.BotConfigCreate, db: Session = Depends(get_db)):
+    return BotService.create(db, bot_in)
 
-@app.get("/api/health")
-def health():
-    return {"status": "ok"}
+@app.get("/bots/", response_model=List[schemas.BotConfig])
+def read_bots(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return BotService.list(db, skip, limit)
 
-# -----------------------
-# MarketData endpoints
-# -----------------------
+@app.get("/bots/{bot_id}", response_model=schemas.BotConfig)
+def read_bot(bot_id: int, db: Session = Depends(get_db)):
+    return BotService.get(db, bot_id)
 
-@app.post("/api/market_data")
-async def create_market_data(
-    data: MarketDataCreate,
-    db: AsyncSession = Depends(get_db)
-):
-    md = MarketData(**data.dict())
-    db.add(md)
-    await db.commit()
-    await db.refresh(md)
-    return md
+@app.patch("/bots/{bot_id}", response_model=schemas.BotConfig)
+def update_bot(bot_id: int, bot_in: schemas.BotConfigCreate, db: Session = Depends(get_db)):
+    return BotService.update(db, bot_id, bot_in)
 
-@app.get("/api/market_data")
-async def read_market_data(
-    symbol: str,
-    limit: int = 100,
-    db: AsyncSession = Depends(get_db)
-):
-    result = await db.execute(
-        select(MarketData)
-        .where(MarketData.symbol == symbol)
-        .order_by(MarketData.timestamp.desc())
-        .limit(limit)
-    )
-    items = result.scalars().all()
-    return items[::-1]  # вернуть в порядке возрастания времени
+@app.delete("/bots/{bot_id}", status_code=204)
+def delete_bot(bot_id: int, db: Session = Depends(get_db)):
+    BotService.delete(db, bot_id)
 
-# -----------------------
-# BotConfig endpoints
-# -----------------------
+# CRUD для PriceGrid
+@app.post("/grids/", response_model=schemas.PriceGrid)
+def create_grid(grid_in: schemas.PriceGridCreate, db: Session = Depends(get_db)):
+    return GridService.create(db, grid_in)
 
-@app.post("/api/bot_config", response_model=BotConfigRead)
-async def create_bot_config(
-    cfg: BotConfigCreate,
-    db: AsyncSession = Depends(get_db)
-):
-    bot = BotConfig(**cfg.dict())
-    db.add(bot)
-    await db.commit()
-    await db.refresh(bot)
-    return bot
+@app.get("/bots/{bot_id}/grids/", response_model=List[schemas.PriceGrid])
+def get_grids(bot_id: int, db: Session = Depends(get_db)):
+    return GridService.list_by_bot(db, bot_id)
 
-@app.get("/api/bot_config/{name}", response_model=BotConfigRead)
-async def read_bot_config(
-    name: str,
-    db: AsyncSession = Depends(get_db)
-):
-    result = await db.execute(
-        select(BotConfig).where(BotConfig.name == name)
-    )
-    bot = result.scalar_one_or_none()
-    if not bot:
-        raise HTTPException(status_code=404, detail="BotConfig not found")
-    return bot
+@app.delete("/grids/{grid_id}", status_code=204)
+def delete_grid(grid_id: int, db: Session = Depends(get_db)):
+    GridService.delete(db, grid_id)

@@ -1,36 +1,38 @@
-# schemas.py
+# backend/schemas.py
 
 from pydantic import BaseModel
-from datetime import datetime
 
-# Схема для создания MarketData
-class MarketDataCreate(BaseModel):
-    symbol: str
-    timestamp: datetime
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float
-
-    class Config:
-        from_attributes = True
-
-# Схема для BotConfig
+# BotConfig schemas
 class BotConfigBase(BaseModel):
     name: str
-    symbol: str
-    min_price: float
-    max_price: float
-    levels: int
-    order_size: float
+    exchange: str
+    grid_size: int
+    lower_price: float
+    upper_price: float
+    lot_size: float
 
 class BotConfigCreate(BotConfigBase):
     pass
 
-class BotConfigRead(BotConfigBase):
+class BotConfig(BotConfigBase):
     id: int
-    params: dict
+
+    class Config:
+        from_attributes = True
+
+# PriceGrid schemas
+class PriceGridBase(BaseModel):
+    bot_id: int
+    level: int
+    price: float
+    side: str
+
+class PriceGridCreate(PriceGridBase):
+    pass
+
+class PriceGrid(PriceGridBase):
+    id: int
+    is_active: bool
 
     class Config:
         from_attributes = True
